@@ -5,7 +5,7 @@ edition = "2021"
 description = "Flexible Dockerfile builder with type-safe features"
 keywords = ["docker", "dockerfile", "dockerfile-builder", "dockerfile-generator"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/ptmphuong/dockerfile-builder/"
+repository = "https://github.com/simp4t7/dockerfile-builder/"
 authors = ["Phuong Pham <ptmphuong9@gmail.com>"]
 
 [dependencies]
