@@ -12,7 +12,7 @@
 //!use dockerfile_builder::Dockerfile;
 //!use dockerfile_builder::instruction::{RUN, EXPOSE};
 //!
-//!let mut dockerfile = Dockerfile::default();
+//!let mut dockerfile = Dockerfile::new();
 //!    dockerfile.push(RUN::from("echo $HOME"))
 //!    .push(EXPOSE::from("80/tcp"))
 //!    .push_any("# Just adding a comment");
@@ -50,7 +50,7 @@
 //!
 //!assert_eq!(expose, expose_from_builder);
 //!
-//!let mut dockerfile = Dockerfile::default();
+//!let mut dockerfile = Dockerfile::new();
 //!    dockerfile.push(expose_from_builder);
 //!  
 //!assert_eq!(
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn quick_start() {
-        let mut dockerfile = Dockerfile::default();
+        let mut dockerfile = Dockerfile::new();
         dockerfile
             .push(RUN::from("echo $HOME"))
             .push(EXPOSE::from("80/tcp"))
@@ -187,7 +187,7 @@ mod tests {
 
         assert_eq!(expose, expose_from_builder);
 
-        let mut dockerfile = Dockerfile::default();
+        let mut dockerfile = Dockerfile::new();
         dockerfile.push(expose_from_builder);
 
         let expected = expect!["EXPOSE 80/tcp"];
@@ -202,7 +202,7 @@ mod tests {
             Instruction::RUN(RUN::from("cargo run")),
         ];
 
-        let mut dockerfile = Dockerfile::default();
+        let mut dockerfile = Dockerfile::new();
         dockerfile.append_any(comments).append(instruction_vec);
 
         let expected = expect![[r#"
