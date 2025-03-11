@@ -12,8 +12,8 @@
 //!use dockerfile_builder::Dockerfile;
 //!use dockerfile_builder::instruction::{RUN, EXPOSE};
 //!
-//!let dockerfile = Dockerfile::default()
-//!    .push(RUN::from("echo $HOME"))
+//!let mut dockerfile = Dockerfile::new();
+//!    dockerfile.push(RUN::from("echo $HOME"))
 //!    .push(EXPOSE::from("80/tcp"))
 //!    .push_any("# Just adding a comment");
 //!    
@@ -50,8 +50,8 @@
 //!
 //!assert_eq!(expose, expose_from_builder);
 //!
-//!let dockerfile = Dockerfile::default()
-//!    .push(expose_from_builder);
+//!let mut dockerfile = Dockerfile::new();
+//!    dockerfile.push(expose_from_builder);
 //!  
 //!assert_eq!(
 //!    dockerfile.to_string(),
@@ -74,16 +74,20 @@ pub struct Dockerfile {
 }
 
 impl Dockerfile {
+    /// Creates a new [Dockerfile], same as `Dockerfile::default()`.
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Adds an [`Instruction`] to the end of the Dockerfile
     ///
     /// [Instruction]: instruction::Instruction
-    pub fn push<T: Into<Instruction>>(mut self, instruction: T) -> Self {
+    pub fn push<T: Into<Instruction>>(&mut self, instruction: T) -> &mut Self {
         self.instructions.push(instruction.into());
         self
     }
 
     /// Adds any raw string to the end of the Dockerfile
-    pub fn push_any<T: Into<String>>(mut self, instruction: T) -> Self {
+    pub fn push_any<T: Into<String>>(&mut self, instruction: T) -> &mut Self {
         self.instructions.push(Instruction::ANY(instruction.into()));
         self
     }
@@ -91,7 +95,7 @@ impl Dockerfile {
     /// Appends multiple [`Instruction`]s to the end of the Dockerfile
     ///
     /// [Instruction]: instruction::Instruction
-    pub fn append<T: Into<Instruction>>(mut self, instructions: Vec<T>) -> Self {
+    pub fn append<T: Into<Instruction>>(&mut self, instructions: Vec<T>) -> &mut Self {
         for i in instructions {
             self.instructions.push(i.into());
         }
@@ -99,7 +103,7 @@ impl Dockerfile {
     }
 
     /// Appends multiple strings to the end of the Dockerfile
-    pub fn append_any<T: Into<String>>(mut self, instructions: Vec<T>) -> Self {
+    pub fn append_any<T: Into<String>>(&mut self, instructions: Vec<T>) -> &mut Self {
         for i in instructions {
             self.instructions.push(Instruction::ANY(i.into()));
         }
@@ -107,18 +111,21 @@ impl Dockerfile {
     }
 
     /// Adds `syntax` data to the end of the Dockerfile
-    pub fn syntax<T: Into<String>>(self, syntax: T) -> Self {
-        self.push_any(format!("# syntax={}", syntax.into()))
+    pub fn syntax<T: Into<String>>(&mut self, syntax: T) -> &mut Self {
+        self.push_any(format!("# syntax={}", syntax.into()));
+        self
     }
 
     /// Adds `escape` data to the end of the Dockerfile
-    pub fn escape<T: Into<String>>(self, escape: T) -> Self {
-        self.push_any(format!("# escape={}", escape.into()))
+    pub fn escape<T: Into<String>>(&mut self, escape: T) -> &mut Self {
+        self.push_any(format!("# escape={}", escape.into()));
+        self
     }
 
     /// Adds a comment to the end of the Dockerfile
-    pub fn comment<T: Into<String>>(self, comment: T) -> Self {
-        self.push_any(format!("# {}", comment.into()))
+    pub fn comment<T: Into<String>>(&mut self, comment: T) -> &mut Self {
+        self.push_any(format!("# {}", comment.into()));
+        self
     }
 
     /// Retrieves [`Instruction`] vec from Dockerfile
@@ -151,7 +158,8 @@ mod tests {
 
     #[test]
     fn quick_start() {
-        let dockerfile = Dockerfile::default()
+        let mut dockerfile = Dockerfile::new();
+        dockerfile
             .push(RUN::from("echo $HOME"))
             .push(EXPOSE::from("80/tcp"))
             .push_any("# Just adding a comment");
@@ -179,7 +187,8 @@ mod tests {
 
         assert_eq!(expose, expose_from_builder);
 
-        let dockerfile = Dockerfile::default().push(expose_from_builder);
+        let mut dockerfile = Dockerfile::new();
+        dockerfile.push(expose_from_builder);
 
         let expected = expect!["EXPOSE 80/tcp"];
         expected.assert_eq(&dockerfile.to_string());
@@ -193,9 +202,8 @@ mod tests {
             Instruction::RUN(RUN::from("cargo run")),
         ];
 
-        let dockerfile = Dockerfile::default()
-            .append_any(comments)
-            .append(instruction_vec);
+        let mut dockerfile = Dockerfile::new();
+        dockerfile.append_any(comments).append(instruction_vec);
 
         let expected = expect![[r#"
             # syntax=docker/dockerfile:1
