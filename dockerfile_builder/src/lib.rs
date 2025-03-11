@@ -74,6 +74,10 @@ pub struct Dockerfile {
 }
 
 impl Dockerfile {
+    /// Creates a new [Dockerfile], same as `Dockerfile::default()`.
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Adds an [`Instruction`] to the end of the Dockerfile
     ///
     /// [Instruction]: instruction::Instruction
