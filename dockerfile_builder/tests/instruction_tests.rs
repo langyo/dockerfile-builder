@@ -290,6 +290,6 @@ fn env_builder_escape() {
         .build()
         .unwrap();
 
-    let expected = expect!["ENV PHP_ERROR_REPORTING=E_ERROR | E_WARNING | E_PARSE"];
+    let expected = expect!["ENV PHP_ERROR_REPORTING=\"E_ERROR | E_WARNING | E_PARSE\""];
     expected.assert_eq(&escape_check.to_string());
 }

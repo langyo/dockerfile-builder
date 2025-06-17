@@ -71,8 +71,8 @@ use crate::instruction::{
     Instruction, ADD, ARG, CMD, COPY, ENTRYPOINT, ENV, EXPOSE, FROM, HEALTHCHECK, LABEL, ONBUILD,
     RUN, SHELL, STOPSIGNAL, USER, VOLUME, WORKDIR,
 };
+use anyhow::{anyhow, Result};
 use dockerfile_builder_macros::InstructionBuilder;
-use eyre::{eyre, Result};
 
 /// Builder struct for [`FROM`] instruction
 ///
@@ -122,7 +122,7 @@ pub struct FromBuilder {
 impl FromBuilder {
     fn value(&self) -> Result<String> {
         if self.tag.is_some() && self.digest.is_some() {
-            return Err(eyre!("Dockerfile image can only have tag OR digest"));
+            return Err(anyhow!("Dockerfile image can only have tag OR digest"));
         }
 
         let tag_or_digest = if let Some(t) = &self.tag {
@@ -164,7 +164,7 @@ impl FromBuilder {
 ///     .value("bar")
 ///     .build()
 ///     .unwrap();
-/// assert_eq!(env.to_string(), "ENV foo=bar");
+/// assert_eq!(env.to_string(), "ENV foo=\"bar\"");
 /// ```
 ///
 /// [ENV]: dockerfile_builder::instruction::ENV
@@ -180,7 +180,7 @@ pub struct EnvBuilder {
 
 impl EnvBuilder {
     fn value(&self) -> Result<String> {
-        Ok(format!("{}={}", self.key, self.value))
+        Ok(format!("{}=\"{}\"", self.key, self.value))
     }
 }
 
@@ -396,12 +396,12 @@ pub struct CmdExecBuilder {
 impl CmdExecBuilder {
     fn value(&self) -> Result<String> {
         if self.executable.is_none() && self.params.is_none() {
-            return Err(eyre!("CMD cannot be empty"));
+            return Err(anyhow!("CMD cannot be empty"));
         }
         let params = match self.params.clone() {
             Some(param_vec) => {
                 if self.executable.is_none() && param_vec.is_empty() {
-                    return Err(eyre!("CMD cannot be empty"));
+                    return Err(anyhow!("CMD cannot be empty"));
                 } else if param_vec.is_empty() {
                     String::new()
                 } else if self.executable.is_none() {
@@ -926,10 +926,10 @@ pub struct OnbuildBuilder {
 impl OnbuildBuilder {
     fn value(&self) -> Result<String> {
         match &self.instruction {
-            Instruction::ONBUILD(_) => Err(eyre!(
+            Instruction::ONBUILD(_) => Err(anyhow!(
                 "Chaining ONBUILD instructions using ONBUILD ONBUILD isn’t allowed"
             )),
-            Instruction::FROM(_) => Err(eyre!(
+            Instruction::FROM(_) => Err(anyhow!(
                 "ONBUILD instruction may not trigger FROM instruction"
             )),
             ins => Ok(ins.to_string()),
