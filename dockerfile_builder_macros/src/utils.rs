@@ -40,6 +40,13 @@ pub(crate) fn is_type_vec_string(ty: &syn::Type) -> bool {
     false
 }
 
+pub(crate) fn is_type_vec_pathbuf(ty: &syn::Type) -> bool {
+    if let Some(inner_of_vec) = inner_type("Vec", ty) {
+        return is_type("PathBuf", inner_of_vec);
+    }
+    false
+}
+
 pub(crate) fn is_type_option_vec_string(ty: &syn::Type) -> bool {
     if let Some(inner_of_option) = inner_type("Option", ty) {
         if let Some(inner_of_option_vec) = inner_type("Vec", inner_of_option) {

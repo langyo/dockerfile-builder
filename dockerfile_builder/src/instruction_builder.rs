@@ -24,10 +24,10 @@
 //! `Expose` can be constructed as follow:
 //!
 //! ```rust
-//! # use dockerfile_builder::instruction_builder::ExposeBuilder;
+//! # use dockerfile_builder::instruction_builder::{ExposeBuilder, PortProtocol};
 //! let expose = ExposeBuilder::builder()
 //!     .port(80)
-//!     .protocol("tcp")
+//!     .protocol(PortProtocol::Tcp)
 //!     .build()
 //!     .unwrap();
 //! ```
@@ -66,6 +66,8 @@
 //! );
 //! ```
 //!
+
+use std::path::PathBuf;
 
 use crate::instruction::{
     Instruction, ADD, ARG, CMD, COPY, ENTRYPOINT, ENV, EXPOSE, FROM, HEALTHCHECK, LABEL, ONBUILD,
@@ -437,7 +439,7 @@ impl CmdExecBuilder {
 ///     .value("bar")
 ///     .build()
 ///     .unwrap();
-/// assert_eq!(label.to_string(), "LABEL foo=bar");
+/// assert_eq!(label.to_string(), "LABEL foo=\"bar\"");
 /// ```
 ///
 /// [LABEL]: dockerfile_builder::instruction::LABEL
@@ -457,7 +459,7 @@ pub struct LabelBuilder {
 
 impl LabelBuilder {
     fn value(&self) -> Result<String> {
-        Ok(format!("{}={}", self.key, self.value))
+        Ok(format!("{}=\"{}\"", self.key, self.value))
     }
 }
 
@@ -471,10 +473,10 @@ impl LabelBuilder {
 ///
 /// Example:
 /// ```
-/// # use dockerfile_builder::instruction_builder::ExposeBuilder;
+/// # use dockerfile_builder::instruction_builder::{ExposeBuilder, PortProtocol};
 /// let expose = ExposeBuilder::builder()
 ///     .port(80)
-///     .protocol("udp")
+///     .protocol(PortProtocol::Udp)
 ///     .build()
 ///     .unwrap();
 /// assert_eq!(expose.to_string(), "EXPOSE 80/udp");
@@ -488,7 +490,23 @@ impl LabelBuilder {
 )]
 pub struct ExposeBuilder {
     pub port: u16,
-    pub protocol: Option<String>,
+    pub protocol: Option<PortProtocol>,
+}
+
+#[derive(Clone, Debug)]
+pub enum PortProtocol {
+    Tcp,
+    Udp,
+}
+
+impl ToString for PortProtocol {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Tcp => "tcp",
+            Self::Udp => "udp",
+        }
+        .to_string()
+    }
 }
 
 impl ExposeBuilder {
@@ -498,7 +516,7 @@ impl ExposeBuilder {
             self.port,
             self.protocol
                 .as_ref()
-                .map(|p| format!("/{}", p))
+                .map(|p| format!("/{}", p.to_string()))
                 .unwrap_or_default()
         ))
     }
@@ -513,13 +531,14 @@ impl ExposeBuilder {
 /// Example:
 /// ```
 /// # use dockerfile_builder::instruction_builder::AddBuilder;
+/// # use std::path::PathBuf;
 /// let add = AddBuilder::builder()
 ///     .chown("myuser:mygroup")
 ///     .chmod(655)
-///     .src("hom*")
-///     .dest("/mydir/")
+///     .src(PathBuf::from("home"))
+///     .dest(PathBuf::from("/mydir/"))
 ///     .build().unwrap();
-/// assert_eq!(add.to_string(), "ADD --chown=myuser:mygroup --chmod=655 hom* /mydir/");
+/// assert_eq!(add.to_string(), "ADD --chown=myuser:mygroup --chmod=655 home /mydir/");
 /// ```
 ///
 /// [ADD]: dockerfile_builder::instruction::ADD
@@ -529,8 +548,8 @@ impl ExposeBuilder {
     value_method = value,
 )]
 pub struct AddBuilder {
-    pub src: String,
-    pub dest: String,
+    pub src: Vec<PathBuf>,
+    pub dest: PathBuf,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
 }
@@ -547,8 +566,12 @@ impl AddBuilder {
                 .as_ref()
                 .map(|c| format!("--chmod={} ", c))
                 .unwrap_or_default(),
-            self.src,
-            self.dest,
+            self.src
+                .iter()
+                .map(|x| x.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" "),
+            self.dest.to_string_lossy(),
         ))
     }
 }
@@ -640,10 +663,11 @@ impl AddGitBuilder {
 /// let copy = CopyBuilder::builder()
 ///     .chown("55:mygroup")
 ///     .chmod(644)
-///     .src("files*")
-///     .dest("/somedir/")
+///     .src(PathBuf::from("files"))
+///     .src(PathBuf::from("more_files"))
+///     .dest(PathBuf::from("/somedir/"))
 ///     .build().unwrap();
-/// assert_eq!(copy.to_string(), "COPY --chown=55:mygroup --chmod=644 files* /somedir/");
+/// assert_eq!(copy.to_string(), "COPY --chown=55:mygroup --chmod=644 files more_files /somedir/");
 /// ```
 ///
 /// [COPY]: dockerfile_builder::instruction::COPY
@@ -654,8 +678,8 @@ impl AddGitBuilder {
     value_method = value,
 )]
 pub struct CopyBuilder {
-    pub src: String,
-    pub dest: String,
+    pub src: Vec<PathBuf>,
+    pub dest: PathBuf,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
     pub from: Option<String>,
@@ -685,8 +709,12 @@ impl CopyBuilder {
                 .as_ref()
                 .map(|c| format!("--from={} ", c))
                 .unwrap_or_default(),
-            self.src,
-            self.dest,
+            self.src
+                .iter()
+                .map(|x| x.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" "),
+            self.dest.to_string_lossy(),
         ))
     }
 }

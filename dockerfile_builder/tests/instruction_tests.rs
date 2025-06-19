@@ -93,8 +93,8 @@ fn expose() {
 #[test]
 fn add() {
     let add = AddBuilder::builder()
-        .src("hom*")
-        .dest("/mydir/")
+        .sources(vec!["file_1".into(), "file_2".into()])
+        .dest("/mydir/".into())
         .build()
         .unwrap();
     let expected = expect!["ADD hom* /mydir/"];
@@ -130,8 +130,8 @@ fn add_git() {
 fn copy() {
     let copy = CopyBuilder::builder()
         .link(true)
-        .src("foo/")
-        .dest("bar/")
+        .src("foo/".into())
+        .dest("bar/".into())
         .build()
         .unwrap();
     let expected = expect!["COPY --link foo/ bar/"];
@@ -292,4 +292,14 @@ fn env_builder_escape() {
 
     let expected = expect!["ENV PHP_ERROR_REPORTING=\"E_ERROR | E_WARNING | E_PARSE\""];
     expected.assert_eq(&escape_check.to_string());
+}
+
+#[test]
+fn test_add_mult_src() {
+    todo!()
+}
+
+#[test]
+fn test_copy_mult_src() {
+    todo!()
 }

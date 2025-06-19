@@ -38,13 +38,13 @@
 //! ```rust
 //!use dockerfile_builder::Dockerfile;
 //!use dockerfile_builder::instruction::EXPOSE;
-//!use dockerfile_builder::instruction_builder::ExposeBuilder;
+//!use dockerfile_builder::instruction_builder::{ExposeBuilder, PortProtocol};
 //!
 //!let expose = EXPOSE::from("80/tcp");
 //!
 //!let expose_from_builder = ExposeBuilder::builder()
 //!    .port(80)
-//!    .protocol("tcp")
+//!    .protocol(PortProtocol::Tcp)
 //!    .build()
 //!    .unwrap();
 //!
@@ -152,7 +152,7 @@ mod tests {
     use super::*;
     use crate::{
         instruction::{EXPOSE, FROM, RUN},
-        instruction_builder::ExposeBuilder,
+        instruction_builder::{ExposeBuilder, PortProtocol},
     };
     use expect_test::expect;
 
@@ -181,7 +181,7 @@ mod tests {
         // Use a builder
         let expose_from_builder = ExposeBuilder::builder()
             .port(80)
-            .protocol("tcp")
+            .protocol(PortProtocol::Tcp)
             .build()
             .unwrap();
 
