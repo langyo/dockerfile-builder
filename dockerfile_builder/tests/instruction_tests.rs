@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use dockerfile_builder::instruction::{Instruction, ADD, CMD, FROM, ONBUILD};
 use dockerfile_builder::instruction_builder::{
     AddBuilder, AddGitBuilder, AddHttpBuilder, ArgBuilder, CmdBuilder, CmdExecBuilder, CopyBuilder,
@@ -93,7 +95,7 @@ fn expose() {
 #[test]
 fn add() {
     let add = AddBuilder::builder()
-        .sources(vec!["file_1".into(), "file_2".into()])
+        .sources(vec![PathBuf::from("file_1"), PathBuf::from("file_2")])
         .dest("/mydir/".into())
         .build()
         .unwrap();
@@ -130,7 +132,7 @@ fn add_git() {
 fn copy() {
     let copy = CopyBuilder::builder()
         .link(true)
-        .src("foo/".into())
+        .src(PathBuf::from("foo/"))
         .dest("bar/".into())
         .build()
         .unwrap();

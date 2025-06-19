@@ -229,22 +229,22 @@ pub fn instruction_builder(input: TokenStream) -> TokenStream {
             });
         }
 
-        if utils::is_type_vec_pathbuf(original_ty) {
-            return Some(quote! {
-                pub fn #each_ident(&mut self, #each_ident: PathBuf) -> &mut Self {
-                    let arg = #each_ident.into();
-                    if self.#name.is_none() {
-                        self.#name = Some(vec![]);
-                    }
-                    if let Some(ref mut vector) = self.#name {
-                        vector.push(arg);
-                    } else {
-                        unreachable!();
-                    }
-                    self
-                }
-            });
-        }
+        //if utils::is_type_vec_pathbuf(original_ty) {
+        //return Some(quote! {
+        //pub fn #each_ident(&mut self, #each_ident: PathBuf) -> &mut Self {
+        //let arg = #each_ident.into();
+        //if self.#name.is_none() {
+        //self.#name = Some(vec![]);
+        //}
+        //if let Some(ref mut vector) = self.#name {
+        //vector.push(arg);
+        //} else {
+        //unreachable!();
+        //}
+        //self
+        //}
+        //});
+        //}
 
         let set_ty = if let Some(inner_ty) = utils::inner_type("Vec", original_ty) {
             inner_ty
