@@ -42,14 +42,14 @@ Instruction builders provide structured and type-safe interfaces to build instru
 ```rust
 use dockerfile_builder::Dockerfile;
 use dockerfile_builder::instruction::EXPOSE;
-use dockerfile_builder::instruction_builder::ExposeBuilder;
+use dockerfile_builder::instruction_builder::{ExposeBuilder, PortProtocol};
 
 fn main() -> eyre::Result<()> {
     let expose = EXPOSE::from("80/tcp");
     
     let expose_from_builder = ExposeBuilder::builder()
         .port(80)
-        .protocol("tcp")
+        .protocol(PortProtocol::Tcp)
         .build()?;
     
     assert_eq!(expose, expose_from_builder);

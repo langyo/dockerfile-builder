@@ -849,12 +849,17 @@ impl EntrypointExecBuilder {
 )]
 pub struct VolumeBuilder {
     #[instruction_builder(each = path)]
-    pub paths: Vec<String>,
+    pub paths: Vec<PathBuf>,
 }
 
 impl VolumeBuilder {
     fn value(&self) -> Result<String> {
-        Ok(self.paths.join(" "))
+        Ok(self
+            .paths
+            .iter()
+            .map(|x| x.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" "))
     }
 }
 

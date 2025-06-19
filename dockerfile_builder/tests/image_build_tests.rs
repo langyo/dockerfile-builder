@@ -1,7 +1,6 @@
 use dockerfile_builder::instruction::ENV;
 use dockerfile_builder::instruction_builder::{
-    CmdBuilder, CopyBuilder, EnvBuilder, ExposeBuilder, FromBuilder, RunBuilder, UserBuilder,
-    WorkdirBuilder,
+    EnvBuilder, ExposeBuilder, FromBuilder, UserBuilder, WorkdirBuilder,
 };
 use dockerfile_builder::Dockerfile;
 

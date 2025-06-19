@@ -168,11 +168,10 @@ fn entrypoint() {
 #[test]
 fn volume() {
     let volume = VolumeBuilder::builder()
-        .path("/myvol1")
-        .path("/myvol2")
+        .path(PathBuf::from("/myvol1"))
         .build()
         .unwrap();
-    let expected = expect!["VOLUME /myvol1 /myvol2"];
+    let expected = expect!["VOLUME /myvol1"];
     expected.assert_eq(&volume.to_string());
 }
 
@@ -334,4 +333,22 @@ fn copy_mult_src() {
         .unwrap();
     let expected = expect!["COPY file_1 file_2 /mydir/"];
     expected.assert_eq(&add.to_string());
+}
+
+#[test]
+fn volume_mult_src() {
+    let volume = VolumeBuilder::builder()
+        .path(PathBuf::from("/myvol1"))
+        .path(PathBuf::from("/myvol2"))
+        .build()
+        .unwrap();
+    let expected = expect!["VOLUME /myvol1 /myvol2"];
+    expected.assert_eq(&volume.to_string());
+
+    let volume = VolumeBuilder::builder()
+        .paths(vec![PathBuf::from("/myvol1"), PathBuf::from("/myvol2")])
+        .build()
+        .unwrap();
+    let expected = expect!["VOLUME /myvol1 /myvol2"];
+    expected.assert_eq(&volume.to_string());
 }
