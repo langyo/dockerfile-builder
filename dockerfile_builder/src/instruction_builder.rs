@@ -548,7 +548,8 @@ impl ExposeBuilder {
     value_method = value,
 )]
 pub struct AddBuilder {
-    pub src: Vec<PathBuf>,
+    #[instruction_builder(each = src)]
+    pub sources: Vec<PathBuf>,
     pub dest: PathBuf,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
@@ -566,7 +567,7 @@ impl AddBuilder {
                 .as_ref()
                 .map(|c| format!("--chmod={} ", c))
                 .unwrap_or_default(),
-            self.src
+            self.sources
                 .iter()
                 .map(|x| x.to_string_lossy())
                 .collect::<Vec<_>>()
@@ -660,6 +661,7 @@ impl AddGitBuilder {
 /// Example:
 /// ```
 /// # use dockerfile_builder::instruction_builder::CopyBuilder;
+/// # use std::path::PathBuf;
 /// let copy = CopyBuilder::builder()
 ///     .chown("55:mygroup")
 ///     .chmod(644)
@@ -678,7 +680,8 @@ impl AddGitBuilder {
     value_method = value,
 )]
 pub struct CopyBuilder {
-    pub src: Vec<PathBuf>,
+    #[instruction_builder(each = src)]
+    pub sources: Vec<PathBuf>,
     pub dest: PathBuf,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
@@ -709,7 +712,7 @@ impl CopyBuilder {
                 .as_ref()
                 .map(|c| format!("--from={} ", c))
                 .unwrap_or_default(),
-            self.src
+            self.sources
                 .iter()
                 .map(|x| x.to_string_lossy())
                 .collect::<Vec<_>>()

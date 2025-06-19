@@ -95,11 +95,11 @@ fn expose() {
 #[test]
 fn add() {
     let add = AddBuilder::builder()
-        .sources(vec![PathBuf::from("file_1"), PathBuf::from("file_2")])
+        .src(PathBuf::from("file_1"))
         .dest("/mydir/".into())
         .build()
         .unwrap();
-    let expected = expect!["ADD hom* /mydir/"];
+    let expected = expect!["ADD file_1 /mydir/"];
     expected.assert_eq(&add.to_string());
 }
 
@@ -297,11 +297,41 @@ fn env_builder_escape() {
 }
 
 #[test]
-fn test_add_mult_src() {
-    todo!()
+fn add_mult_src() {
+    let add = AddBuilder::builder()
+        .src(PathBuf::from("file_1"))
+        .src(PathBuf::from("file_2"))
+        .dest("/mydir/".into())
+        .build()
+        .unwrap();
+    let expected = expect!["ADD file_1 file_2 /mydir/"];
+    expected.assert_eq(&add.to_string());
+
+    let add = AddBuilder::builder()
+        .sources(vec![PathBuf::from("file_1"), PathBuf::from("file_2")])
+        .dest("/mydir/".into())
+        .build()
+        .unwrap();
+    let expected = expect!["ADD file_1 file_2 /mydir/"];
+    expected.assert_eq(&add.to_string());
 }
 
 #[test]
-fn test_copy_mult_src() {
-    todo!()
+fn copy_mult_src() {
+    let add = CopyBuilder::builder()
+        .src(PathBuf::from("file_1"))
+        .src(PathBuf::from("file_2"))
+        .dest("/mydir/".into())
+        .build()
+        .unwrap();
+    let expected = expect!["COPY file_1 file_2 /mydir/"];
+    expected.assert_eq(&add.to_string());
+
+    let add = CopyBuilder::builder()
+        .sources(vec![PathBuf::from("file_1"), PathBuf::from("file_2")])
+        .dest("/mydir/".into())
+        .build()
+        .unwrap();
+    let expected = expect!["COPY file_1 file_2 /mydir/"];
+    expected.assert_eq(&add.to_string());
 }
