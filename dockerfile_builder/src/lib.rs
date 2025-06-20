@@ -74,7 +74,7 @@ pub struct Dockerfile {
 }
 
 impl Dockerfile {
-    /// Creates a new [Dockerfile], same as `Dockerfile::default()`.
+    /// Creates a new [`Dockerfile`], same as `Dockerfile::default()`.
     pub fn new() -> Self {
         Self::default()
     }
