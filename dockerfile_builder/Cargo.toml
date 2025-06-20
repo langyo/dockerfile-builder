@@ -1,6 +1,6 @@
 [package]
 name = "dockerfile_builder"
-version = "0.1.4"
+version = "0.1.6"
 edition = "2021"
 description = "Flexible Dockerfile builder with type-safe features"
 keywords = ["docker", "dockerfile", "dockerfile-builder", "dockerfile-generator"]
@@ -10,14 +10,14 @@ authors = ["T <simp4t7@gmail.com>"]
 
 [dependencies]
 anyhow = "1.0.98"
-#dockerfile_builder_macros = "0.1.5"
+dockerfile_builder_macros = "0.1.4"
 
 [dependencies.url]
 version = "2.5.4"
 default-features = false
 
-[dependencies.dockerfile_builder_macros]
-path = "../dockerfile_builder_macros"
+#[dependencies.dockerfile_builder_macros]
+#path = "../dockerfile_builder_macros"
 
 [dev-dependencies]
 bollard = "0.19.1"
