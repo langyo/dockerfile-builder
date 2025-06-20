@@ -1,8 +1,8 @@
 [package]
 name = "dockerfile_builder_macros"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
-authors = ["Phuong Pham <ptmphuong9@gmail.com>"]
+authors = ["T <simp4t7@gmail.com>"]
 description = "Private macro implemenation for dockerfile_builder"
 repository = "https://github.com/simp4t7/dockerfile-builder/"
 license = "MIT OR Apache-2.0"
@@ -12,6 +12,6 @@ proc-macro = true
 
 [dependencies]
 anyhow = "1.0.98"
-proc-macro2 = "1.0.63"
-quote = "1.0.28"
-syn = { version = "2.0.18", features = ["extra-traits", "printing"] }
+proc-macro2 = "1.0.95"
+quote = "1.0.40"
+syn = { version = "2.0.103", features = ["extra-traits", "printing"] }

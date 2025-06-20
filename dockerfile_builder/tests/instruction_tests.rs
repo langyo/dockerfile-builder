@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use dockerfile_builder::instruction::{Instruction, ADD, CMD, FROM, ONBUILD};
 use dockerfile_builder::instruction_builder::{
     AddBuilder, AddGitBuilder, AddHttpBuilder, ArgBuilder, CmdBuilder, CmdExecBuilder, CopyBuilder,
@@ -8,6 +6,7 @@ use dockerfile_builder::instruction_builder::{
     VolumeBuilder, WorkdirBuilder,
 };
 use expect_test::expect;
+use std::time::Duration;
 
 #[test]
 fn from() {
@@ -95,8 +94,8 @@ fn expose() {
 #[test]
 fn add() {
     let add = AddBuilder::builder()
-        .src(PathBuf::from("file_1"))
-        .dest("/mydir/".into())
+        .src("file_1")
+        .dest("/mydir/")
         .build()
         .unwrap();
     let expected = expect!["ADD file_1 /mydir/"];
@@ -132,8 +131,8 @@ fn add_git() {
 fn copy() {
     let copy = CopyBuilder::builder()
         .link(true)
-        .src(PathBuf::from("foo/"))
-        .dest("bar/".into())
+        .src("foo/")
+        .dest("bar/")
         .build()
         .unwrap();
     let expected = expect!["COPY --link foo/ bar/"];
@@ -167,10 +166,7 @@ fn entrypoint() {
 
 #[test]
 fn volume() {
-    let volume = VolumeBuilder::builder()
-        .path(PathBuf::from("/myvol1"))
-        .build()
-        .unwrap();
+    let volume = VolumeBuilder::builder().path("/myvol1").build().unwrap();
     let expected = expect!["VOLUME /myvol1"];
     expected.assert_eq(&volume.to_string());
 }
@@ -211,7 +207,7 @@ fn arg() {
         .value("someuser")
         .build()
         .unwrap();
-    let expected = expect!["ARG user1=someuser"];
+    let expected = expect!["ARG user1=\"someuser\""];
     expected.assert_eq(&arg.to_string());
 }
 
@@ -273,9 +269,9 @@ fn healthcheck() {
 
     let healthcheck = HealthcheckBuilder::builder()
         .cmd(CMD::from("curl -f http://localhost/"))
-        .interval(15)
-        .timeout(200)
-        .start_period(5)
+        .interval(Duration::from_secs(15))
+        .timeout(Duration::from_secs(200))
+        .start_period(Duration::from_secs(5))
         .retries(5)
         .build()
         .unwrap();
@@ -298,17 +294,17 @@ fn env_builder_escape() {
 #[test]
 fn add_mult_src() {
     let add = AddBuilder::builder()
-        .src(PathBuf::from("file_1"))
-        .src(PathBuf::from("file_2"))
-        .dest("/mydir/".into())
+        .src("file_1")
+        .src("file_2")
+        .dest("/mydir/")
         .build()
         .unwrap();
     let expected = expect!["ADD file_1 file_2 /mydir/"];
     expected.assert_eq(&add.to_string());
 
     let add = AddBuilder::builder()
-        .sources(vec![PathBuf::from("file_1"), PathBuf::from("file_2")])
-        .dest("/mydir/".into())
+        .sources(vec!["file_1", "file_2"])
+        .dest("/mydir/")
         .build()
         .unwrap();
     let expected = expect!["ADD file_1 file_2 /mydir/"];
@@ -318,17 +314,17 @@ fn add_mult_src() {
 #[test]
 fn copy_mult_src() {
     let add = CopyBuilder::builder()
-        .src(PathBuf::from("file_1"))
-        .src(PathBuf::from("file_2"))
-        .dest("/mydir/".into())
+        .src("file_1")
+        .src("file_2")
+        .dest("/mydir/")
         .build()
         .unwrap();
     let expected = expect!["COPY file_1 file_2 /mydir/"];
     expected.assert_eq(&add.to_string());
 
     let add = CopyBuilder::builder()
-        .sources(vec![PathBuf::from("file_1"), PathBuf::from("file_2")])
-        .dest("/mydir/".into())
+        .sources(vec!["file_1", "file_2"])
+        .dest("/mydir/")
         .build()
         .unwrap();
     let expected = expect!["COPY file_1 file_2 /mydir/"];
@@ -338,17 +334,99 @@ fn copy_mult_src() {
 #[test]
 fn volume_mult_src() {
     let volume = VolumeBuilder::builder()
-        .path(PathBuf::from("/myvol1"))
-        .path(PathBuf::from("/myvol2"))
+        .path("/myvol1")
+        .path("/myvol2")
         .build()
         .unwrap();
     let expected = expect!["VOLUME /myvol1 /myvol2"];
     expected.assert_eq(&volume.to_string());
 
     let volume = VolumeBuilder::builder()
-        .paths(vec![PathBuf::from("/myvol1"), PathBuf::from("/myvol2")])
+        .paths(vec!["/myvol1", "/myvol2"])
         .build()
         .unwrap();
     let expected = expect!["VOLUME /myvol1 /myvol2"];
     expected.assert_eq(&volume.to_string());
+}
+
+#[test]
+fn healthcheck_none() {
+    let healthcheck = HealthcheckBuilder::builder().build().unwrap();
+    let expected = expect!["HEALTHCHECK NONE"];
+    expected.assert_eq(&healthcheck.to_string());
+
+    let healthcheck = HealthcheckBuilder::set_none().unwrap();
+    let expected = expect!["HEALTHCHECK NONE"];
+    expected.assert_eq(&healthcheck.to_string());
+}
+
+#[test]
+fn healthcheck_start_interval() {
+    let healthcheck = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .interval(Duration::from_secs(15))
+        .timeout(Duration::from_secs(200))
+        .start_period(Duration::from_secs(5))
+        .start_interval(Duration::from_secs(5))
+        .retries(5)
+        .build()
+        .unwrap();
+    let expected = expect!["HEALTHCHECK --interal=15 --timeout=200 --start-period=5 --start-interval=5 --retries=5 CMD curl -f http://localhost/"];
+    expected.assert_eq(&healthcheck.to_string());
+}
+
+#[test]
+fn add_git_url_parse_failure() {
+    let add = AddGitBuilder::builder()
+        .keep_git_dir(true)
+        .git_ref("!@#~~https://github.com/moby/buildkit.git#v0.10.1")
+        .dir("/buildkit")
+        .build();
+    assert!(add.is_err());
+}
+
+#[test]
+fn add_http_url_parse_failure() {
+    let add = AddHttpBuilder::builder()
+        .src("!@#~~https://github.com/moby/buildkit.git#v0.10.1")
+        .dest("/buildkit")
+        .build();
+    assert!(add.is_err());
+}
+
+#[test]
+fn additional_urls() {
+    let add = AddGitBuilder::builder()
+        .keep_git_dir(true)
+        .git_ref("https://github.com/rust-lang/rust/issues?labels=E-easy&state=open")
+        .dir("/buildkit")
+        .build();
+    if add.is_err() {
+        eprintln!("{:#?}", &add);
+    }
+    assert!(add.is_ok());
+
+    //Data url
+    let add = AddGitBuilder::builder()
+        .keep_git_dir(true)
+        .git_ref("data:text/plain,Hello?World#")
+        .dir("/buildkit")
+        .build();
+    if add.is_err() {
+        eprintln!("{:#?}", &add);
+    }
+    assert!(add.is_ok());
+}
+
+#[test]
+fn add_http_percent_encoding() {
+    let add = AddGitBuilder::builder()
+        .keep_git_dir(true)
+        .git_ref("https://foobar.com/foo%20%3Cbar%3E")
+        .dir("/buildkit")
+        .build();
+    if add.is_err() {
+        eprintln!("{:#?}", &add);
+    }
+    assert!(add.is_ok());
 }

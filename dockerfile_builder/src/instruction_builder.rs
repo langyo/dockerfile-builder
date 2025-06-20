@@ -67,7 +67,7 @@
 //! ```
 //!
 
-use std::path::PathBuf;
+use std::time::Duration;
 
 use crate::instruction::{
     Instruction, ADD, ARG, CMD, COPY, ENTRYPOINT, ENV, EXPOSE, FROM, HEALTHCHECK, LABEL, ONBUILD,
@@ -75,6 +75,7 @@ use crate::instruction::{
 };
 use anyhow::{anyhow, Result};
 use dockerfile_builder_macros::InstructionBuilder;
+use url::Url;
 
 /// Builder struct for [`FROM`] instruction
 ///
@@ -531,12 +532,11 @@ impl ExposeBuilder {
 /// Example:
 /// ```
 /// # use dockerfile_builder::instruction_builder::AddBuilder;
-/// # use std::path::PathBuf;
 /// let add = AddBuilder::builder()
 ///     .chown("myuser:mygroup")
 ///     .chmod(655)
-///     .src(PathBuf::from("home"))
-///     .dest(PathBuf::from("/mydir/"))
+///     .src("home")
+///     .dest("/mydir/")
 ///     .build().unwrap();
 /// assert_eq!(add.to_string(), "ADD --chown=myuser:mygroup --chmod=655 home /mydir/");
 /// ```
@@ -549,8 +549,8 @@ impl ExposeBuilder {
 )]
 pub struct AddBuilder {
     #[instruction_builder(each = src)]
-    pub sources: Vec<PathBuf>,
-    pub dest: PathBuf,
+    pub sources: Vec<String>,
+    pub dest: String,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
 }
@@ -567,12 +567,8 @@ impl AddBuilder {
                 .as_ref()
                 .map(|c| format!("--chmod={} ", c))
                 .unwrap_or_default(),
-            self.sources
-                .iter()
-                .map(|x| x.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" "),
-            self.dest.to_string_lossy(),
+            self.sources.join(" "),
+            self.dest,
         ))
     }
 }
@@ -608,6 +604,9 @@ pub struct AddHttpBuilder {
 
 impl AddHttpBuilder {
     fn value(&self) -> Result<String> {
+        if let Err(e) = Url::parse(&self.src) {
+            return Err(anyhow!("{e}"));
+        }
         Ok(format!(
             "{}{} {}",
             self.checksum
@@ -640,6 +639,9 @@ pub struct AddGitBuilder {
 
 impl AddGitBuilder {
     fn value(&self) -> Result<String> {
+        if let Err(e) = Url::parse(&self.git_ref) {
+            return Err(anyhow!("{e}"));
+        }
         Ok(format!(
             "{}{} {}",
             self.keep_git_dir
@@ -661,13 +663,12 @@ impl AddGitBuilder {
 /// Example:
 /// ```
 /// # use dockerfile_builder::instruction_builder::CopyBuilder;
-/// # use std::path::PathBuf;
 /// let copy = CopyBuilder::builder()
 ///     .chown("55:mygroup")
 ///     .chmod(644)
-///     .src(PathBuf::from("files"))
-///     .src(PathBuf::from("more_files"))
-///     .dest(PathBuf::from("/somedir/"))
+///     .src("files")
+///     .src("more_files")
+///     .dest("/somedir/")
 ///     .build().unwrap();
 /// assert_eq!(copy.to_string(), "COPY --chown=55:mygroup --chmod=644 files more_files /somedir/");
 /// ```
@@ -681,8 +682,8 @@ impl AddGitBuilder {
 )]
 pub struct CopyBuilder {
     #[instruction_builder(each = src)]
-    pub sources: Vec<PathBuf>,
-    pub dest: PathBuf,
+    pub sources: Vec<String>,
+    pub dest: String,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
     pub from: Option<String>,
@@ -712,12 +713,8 @@ impl CopyBuilder {
                 .as_ref()
                 .map(|c| format!("--from={} ", c))
                 .unwrap_or_default(),
-            self.sources
-                .iter()
-                .map(|x| x.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" "),
-            self.dest.to_string_lossy(),
+            self.sources.join(" "),
+            self.dest,
         ))
     }
 }
@@ -849,17 +846,12 @@ impl EntrypointExecBuilder {
 )]
 pub struct VolumeBuilder {
     #[instruction_builder(each = path)]
-    pub paths: Vec<PathBuf>,
+    pub paths: Vec<String>,
 }
 
 impl VolumeBuilder {
     fn value(&self) -> Result<String> {
-        Ok(self
-            .paths
-            .iter()
-            .map(|x| x.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join(" "))
+        Ok(self.paths.join(" "))
     }
 }
 
@@ -936,7 +928,7 @@ pub struct ArgBuilder {
 impl ArgBuilder {
     fn value(&self) -> Result<String> {
         let value = match &self.value {
-            Some(value) => format!("{}={}", self.name, value),
+            Some(value) => format!("{}=\"{}\"", self.name, value),
             None => self.name.to_string(),
         };
         Ok(value)
@@ -1000,7 +992,7 @@ impl StopsignalBuilder {
 /// Format according to [Dockerfile
 /// reference](https://docs.docker.com/engine/reference/builder/#healthcheck):
 /// * `HEALTHCHECK [--interval=DURATION] [--timeout=DURATION]
-///                [--start-period=DURATION] [--retries=N] CMD <command>`
+/// [--start-period=DURATION] [--start-interval=DURATION] [--retries=N] CMD <command>`
 ///
 /// [HEALTHCHECK]: dockerfile_builder::instruction::HEALTHCHECK
 #[derive(Debug, InstructionBuilder)]
@@ -1009,35 +1001,51 @@ impl StopsignalBuilder {
     value_method = value,
 )]
 pub struct HealthcheckBuilder {
-    pub cmd: CMD,
-    pub interval: Option<i32>,
-    pub timeout: Option<i32>,
-    pub start_period: Option<i32>,
+    pub cmd: Option<CMD>,
+    pub interval: Option<Duration>,
+    pub timeout: Option<Duration>,
+    pub start_period: Option<Duration>,
+    pub start_interval: Option<Duration>,
     pub retries: Option<i32>,
 }
 
 impl HealthcheckBuilder {
     fn value(&self) -> Result<String> {
-        Ok(format!(
-            "{}{}{}{}{}",
-            self.interval
-                .as_ref()
-                .map(|i| format!("--interal={} ", i))
-                .unwrap_or_default(),
-            self.timeout
-                .as_ref()
-                .map(|t| format!("--timeout={} ", t))
-                .unwrap_or_default(),
-            self.start_period
-                .as_ref()
-                .map(|s| format!("--start-period={} ", s))
-                .unwrap_or_default(),
-            self.retries
-                .as_ref()
-                .map(|r| format!("--retries={} ", r))
-                .unwrap_or_default(),
-            self.cmd,
-        ))
+        match self.cmd.is_some() {
+            true => Ok(format!(
+                "{}{}{}{}{}{}",
+                self.interval
+                    .as_ref()
+                    .map(|i| format!("--interal={} ", i.as_secs()))
+                    .unwrap_or_default(),
+                self.timeout
+                    .as_ref()
+                    .map(|t| format!("--timeout={} ", t.as_secs()))
+                    .unwrap_or_default(),
+                self.start_period
+                    .as_ref()
+                    .map(|s| format!("--start-period={} ", s.as_secs()))
+                    .unwrap_or_default(),
+                self.start_interval
+                    .as_ref()
+                    .map(|s| format!("--start-interval={} ", s.as_secs()))
+                    .unwrap_or_default(),
+                self.retries
+                    .as_ref()
+                    .map(|r| format!("--retries={} ", r))
+                    .unwrap_or_default(),
+                self.cmd.clone().unwrap(),
+            )),
+            false => Ok("NONE".to_string()),
+        }
+    }
+
+    /// Convenience method for setting HEALTHCHECK NONE.
+    /// ```Rust
+    /// HealthcheckBuilder::set_none() == "HEALTHCHECK NONE".to_string()
+    /// ```
+    pub fn set_none() -> Result<String> {
+        Ok("HEALTHCHECK NONE".to_string())
     }
 }
 
