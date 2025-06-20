@@ -10,7 +10,7 @@ authors = ["T <simp4t7@gmail.com>"]
 
 [dependencies]
 anyhow = "1.0.98"
-dockerfile_builder_macros = "0.1.5"
+dockerfile_builder_macros = "0.1.6"
 
 [dependencies.url]
 version = "2.5.4"
