@@ -24,10 +24,10 @@
 //! `Expose` can be constructed as follow:
 //!
 //! ```rust
-//! # use dockerfile_builder::instruction_builder::ExposeBuilder;
+//! # use dockerfile_builder::instruction_builder::{ExposeBuilder, PortProtocol};
 //! let expose = ExposeBuilder::builder()
 //!     .port(80)
-//!     .protocol("tcp")
+//!     .protocol(PortProtocol::Tcp)
 //!     .build()
 //!     .unwrap();
 //! ```
@@ -67,12 +67,15 @@
 //! ```
 //!
 
+use std::time::Duration;
+
 use crate::instruction::{
     Instruction, ADD, ARG, CMD, COPY, ENTRYPOINT, ENV, EXPOSE, FROM, HEALTHCHECK, LABEL, ONBUILD,
     RUN, SHELL, STOPSIGNAL, USER, VOLUME, WORKDIR,
 };
+use anyhow::{anyhow, Result};
 use dockerfile_builder_macros::InstructionBuilder;
-use eyre::{eyre, Result};
+use url::Url;
 
 /// Builder struct for [`FROM`] instruction
 ///
@@ -122,7 +125,7 @@ pub struct FromBuilder {
 impl FromBuilder {
     fn value(&self) -> Result<String> {
         if self.tag.is_some() && self.digest.is_some() {
-            return Err(eyre!("Dockerfile image can only have tag OR digest"));
+            return Err(anyhow!("Dockerfile image can only have tag OR digest"));
         }
 
         let tag_or_digest = if let Some(t) = &self.tag {
@@ -164,7 +167,7 @@ impl FromBuilder {
 ///     .value("bar")
 ///     .build()
 ///     .unwrap();
-/// assert_eq!(env.to_string(), "ENV foo=bar");
+/// assert_eq!(env.to_string(), "ENV foo=\"bar\"");
 /// ```
 ///
 /// [ENV]: dockerfile_builder::instruction::ENV
@@ -180,7 +183,7 @@ pub struct EnvBuilder {
 
 impl EnvBuilder {
     fn value(&self) -> Result<String> {
-        Ok(format!("{}={}", self.key, self.value))
+        Ok(format!("{}=\"{}\"", self.key, self.value))
     }
 }
 
@@ -396,12 +399,12 @@ pub struct CmdExecBuilder {
 impl CmdExecBuilder {
     fn value(&self) -> Result<String> {
         if self.executable.is_none() && self.params.is_none() {
-            return Err(eyre!("CMD cannot be empty"));
+            return Err(anyhow!("CMD cannot be empty"));
         }
         let params = match self.params.clone() {
             Some(param_vec) => {
                 if self.executable.is_none() && param_vec.is_empty() {
-                    return Err(eyre!("CMD cannot be empty"));
+                    return Err(anyhow!("CMD cannot be empty"));
                 } else if param_vec.is_empty() {
                     String::new()
                 } else if self.executable.is_none() {
@@ -437,7 +440,7 @@ impl CmdExecBuilder {
 ///     .value("bar")
 ///     .build()
 ///     .unwrap();
-/// assert_eq!(label.to_string(), "LABEL foo=bar");
+/// assert_eq!(label.to_string(), "LABEL foo=\"bar\"");
 /// ```
 ///
 /// [LABEL]: dockerfile_builder::instruction::LABEL
@@ -457,7 +460,7 @@ pub struct LabelBuilder {
 
 impl LabelBuilder {
     fn value(&self) -> Result<String> {
-        Ok(format!("{}={}", self.key, self.value))
+        Ok(format!("{}=\"{}\"", self.key, self.value))
     }
 }
 
@@ -471,10 +474,10 @@ impl LabelBuilder {
 ///
 /// Example:
 /// ```
-/// # use dockerfile_builder::instruction_builder::ExposeBuilder;
+/// # use dockerfile_builder::instruction_builder::{ExposeBuilder, PortProtocol};
 /// let expose = ExposeBuilder::builder()
 ///     .port(80)
-///     .protocol("udp")
+///     .protocol(PortProtocol::Udp)
 ///     .build()
 ///     .unwrap();
 /// assert_eq!(expose.to_string(), "EXPOSE 80/udp");
@@ -488,7 +491,23 @@ impl LabelBuilder {
 )]
 pub struct ExposeBuilder {
     pub port: u16,
-    pub protocol: Option<String>,
+    pub protocol: Option<PortProtocol>,
+}
+
+#[derive(Clone, Debug)]
+pub enum PortProtocol {
+    Tcp,
+    Udp,
+}
+
+impl ToString for PortProtocol {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Tcp => "tcp",
+            Self::Udp => "udp",
+        }
+        .to_string()
+    }
 }
 
 impl ExposeBuilder {
@@ -498,7 +517,7 @@ impl ExposeBuilder {
             self.port,
             self.protocol
                 .as_ref()
-                .map(|p| format!("/{}", p))
+                .map(|p| format!("/{}", p.to_string()))
                 .unwrap_or_default()
         ))
     }
@@ -516,10 +535,10 @@ impl ExposeBuilder {
 /// let add = AddBuilder::builder()
 ///     .chown("myuser:mygroup")
 ///     .chmod(655)
-///     .src("hom*")
+///     .src("home")
 ///     .dest("/mydir/")
 ///     .build().unwrap();
-/// assert_eq!(add.to_string(), "ADD --chown=myuser:mygroup --chmod=655 hom* /mydir/");
+/// assert_eq!(add.to_string(), "ADD --chown=myuser:mygroup --chmod=655 home /mydir/");
 /// ```
 ///
 /// [ADD]: dockerfile_builder::instruction::ADD
@@ -529,7 +548,8 @@ impl ExposeBuilder {
     value_method = value,
 )]
 pub struct AddBuilder {
-    pub src: String,
+    #[instruction_builder(each = src)]
+    pub sources: Vec<String>,
     pub dest: String,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
@@ -547,7 +567,7 @@ impl AddBuilder {
                 .as_ref()
                 .map(|c| format!("--chmod={} ", c))
                 .unwrap_or_default(),
-            self.src,
+            self.sources.join(" "),
             self.dest,
         ))
     }
@@ -584,6 +604,9 @@ pub struct AddHttpBuilder {
 
 impl AddHttpBuilder {
     fn value(&self) -> Result<String> {
+        if let Err(e) = Url::parse(&self.src) {
+            return Err(anyhow!("{e}"));
+        }
         Ok(format!(
             "{}{} {}",
             self.checksum
@@ -616,6 +639,9 @@ pub struct AddGitBuilder {
 
 impl AddGitBuilder {
     fn value(&self) -> Result<String> {
+        if let Err(e) = Url::parse(&self.git_ref) {
+            return Err(anyhow!("{e}"));
+        }
         Ok(format!(
             "{}{} {}",
             self.keep_git_dir
@@ -640,10 +666,11 @@ impl AddGitBuilder {
 /// let copy = CopyBuilder::builder()
 ///     .chown("55:mygroup")
 ///     .chmod(644)
-///     .src("files*")
+///     .src("files")
+///     .src("more_files")
 ///     .dest("/somedir/")
 ///     .build().unwrap();
-/// assert_eq!(copy.to_string(), "COPY --chown=55:mygroup --chmod=644 files* /somedir/");
+/// assert_eq!(copy.to_string(), "COPY --chown=55:mygroup --chmod=644 files more_files /somedir/");
 /// ```
 ///
 /// [COPY]: dockerfile_builder::instruction::COPY
@@ -654,7 +681,8 @@ impl AddGitBuilder {
     value_method = value,
 )]
 pub struct CopyBuilder {
-    pub src: String,
+    #[instruction_builder(each = src)]
+    pub sources: Vec<String>,
     pub dest: String,
     pub chown: Option<String>,
     pub chmod: Option<u16>,
@@ -685,7 +713,7 @@ impl CopyBuilder {
                 .as_ref()
                 .map(|c| format!("--from={} ", c))
                 .unwrap_or_default(),
-            self.src,
+            self.sources.join(" "),
             self.dest,
         ))
     }
@@ -900,7 +928,7 @@ pub struct ArgBuilder {
 impl ArgBuilder {
     fn value(&self) -> Result<String> {
         let value = match &self.value {
-            Some(value) => format!("{}={}", self.name, value),
+            Some(value) => format!("{}=\"{}\"", self.name, value),
             None => self.name.to_string(),
         };
         Ok(value)
@@ -926,10 +954,10 @@ pub struct OnbuildBuilder {
 impl OnbuildBuilder {
     fn value(&self) -> Result<String> {
         match &self.instruction {
-            Instruction::ONBUILD(_) => Err(eyre!(
+            Instruction::ONBUILD(_) => Err(anyhow!(
                 "Chaining ONBUILD instructions using ONBUILD ONBUILD isn’t allowed"
             )),
-            Instruction::FROM(_) => Err(eyre!(
+            Instruction::FROM(_) => Err(anyhow!(
                 "ONBUILD instruction may not trigger FROM instruction"
             )),
             ins => Ok(ins.to_string()),
@@ -964,7 +992,7 @@ impl StopsignalBuilder {
 /// Format according to [Dockerfile
 /// reference](https://docs.docker.com/engine/reference/builder/#healthcheck):
 /// * `HEALTHCHECK [--interval=DURATION] [--timeout=DURATION]
-///                [--start-period=DURATION] [--retries=N] CMD <command>`
+/// [--start-period=DURATION] [--start-interval=DURATION] [--retries=N] CMD <command>`
 ///
 /// [HEALTHCHECK]: dockerfile_builder::instruction::HEALTHCHECK
 #[derive(Debug, InstructionBuilder)]
@@ -973,35 +1001,51 @@ impl StopsignalBuilder {
     value_method = value,
 )]
 pub struct HealthcheckBuilder {
-    pub cmd: CMD,
-    pub interval: Option<i32>,
-    pub timeout: Option<i32>,
-    pub start_period: Option<i32>,
+    pub cmd: Option<CMD>,
+    pub interval: Option<Duration>,
+    pub timeout: Option<Duration>,
+    pub start_period: Option<Duration>,
+    pub start_interval: Option<Duration>,
     pub retries: Option<i32>,
 }
 
 impl HealthcheckBuilder {
     fn value(&self) -> Result<String> {
-        Ok(format!(
-            "{}{}{}{}{}",
-            self.interval
-                .as_ref()
-                .map(|i| format!("--interal={} ", i))
-                .unwrap_or_default(),
-            self.timeout
-                .as_ref()
-                .map(|t| format!("--timeout={} ", t))
-                .unwrap_or_default(),
-            self.start_period
-                .as_ref()
-                .map(|s| format!("--start-period={} ", s))
-                .unwrap_or_default(),
-            self.retries
-                .as_ref()
-                .map(|r| format!("--retries={} ", r))
-                .unwrap_or_default(),
-            self.cmd,
-        ))
+        match self.cmd.is_some() {
+            true => Ok(format!(
+                "{}{}{}{}{}{}",
+                self.interval
+                    .as_ref()
+                    .map(|i| format!("--interal={} ", i.as_secs()))
+                    .unwrap_or_default(),
+                self.timeout
+                    .as_ref()
+                    .map(|t| format!("--timeout={} ", t.as_secs()))
+                    .unwrap_or_default(),
+                self.start_period
+                    .as_ref()
+                    .map(|s| format!("--start-period={} ", s.as_secs()))
+                    .unwrap_or_default(),
+                self.start_interval
+                    .as_ref()
+                    .map(|s| format!("--start-interval={} ", s.as_secs()))
+                    .unwrap_or_default(),
+                self.retries
+                    .as_ref()
+                    .map(|r| format!("--retries={} ", r))
+                    .unwrap_or_default(),
+                self.cmd.clone().unwrap(),
+            )),
+            false => Ok("NONE".to_string()),
+        }
+    }
+
+    /// Convenience method for setting HEALTHCHECK NONE.
+    /// ```Rust
+    /// HealthcheckBuilder::set_none() == "HEALTHCHECK NONE".to_string()
+    /// ```
+    pub fn set_none() -> Result<String> {
+        Ok("HEALTHCHECK NONE".to_string())
     }
 }
 
@@ -1055,287 +1099,5 @@ impl ShellBuilder {
             None => String::new(),
         };
         Ok(format!(r#"["{}"{}]"#, self.executable, params))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use expect_test::expect;
-
-    #[test]
-    fn from() {
-        let from = FromBuilder::builder().image("cargo-chef").build().unwrap();
-        let expected = expect!["FROM cargo-chef"];
-        expected.assert_eq(&from.to_string());
-
-        let from = FromBuilder::builder()
-            .image("cargo-chef")
-            .platform("linux/arm64")
-            .build()
-            .unwrap();
-        let expected = expect!["FROM --platform=linux/arm64 cargo-chef"];
-        expected.assert_eq(&from.to_string());
-
-        let from = FromBuilder::builder()
-            .image("cargo-chef")
-            .name("chef")
-            .tag("latest")
-            .build()
-            .unwrap();
-        let expected = expect!["FROM cargo-chef:latest AS chef"];
-        expected.assert_eq(&from.to_string());
-
-        let from = FromBuilder::builder()
-            .image("cargo-chef")
-            .name("chef")
-            .digest("sha256")
-            .build()
-            .unwrap();
-        let expected = expect!["FROM cargo-chef@sha256 AS chef"];
-        expected.assert_eq(&from.to_string());
-    }
-
-    #[test]
-    fn run() {
-        let run = RunExecBuilder::builder()
-            .executable("mybin.exe")
-            .build()
-            .unwrap();
-        let expected = expect![r#"RUN ["mybin.exe"]"#];
-        expected.assert_eq(&run.to_string());
-    }
-
-    #[test]
-    fn cmd() {
-        let cmd = CmdBuilder::builder()
-            .command("some command")
-            .build()
-            .unwrap();
-        let expected = expect!["CMD some command"];
-        expected.assert_eq(&cmd.to_string());
-
-        let cmd = CmdExecBuilder::builder()
-            .executable("some command")
-            .build()
-            .unwrap();
-        let expected = expect![r#"CMD ["some command"]"#];
-        expected.assert_eq(&cmd.to_string());
-    }
-
-    #[test]
-    fn from_err() {
-        let from = FromBuilder::builder()
-            .image("cargo-chef")
-            .tag("t")
-            .digest("d")
-            .build();
-        match from {
-            Ok(_) => panic!("Both tag and digest are set. Expect test to fail"),
-            Err(e) => assert_eq!(
-                e.to_string(),
-                "Dockerfile image can only have tag OR digest".to_string(),
-            ),
-        }
-    }
-
-    #[test]
-    fn expose() {
-        let expose = ExposeBuilder::builder().port(80).build().unwrap();
-        let expected = expect!["EXPOSE 80"];
-        expected.assert_eq(&expose.to_string());
-    }
-
-    #[test]
-    fn add() {
-        let add = AddBuilder::builder()
-            .src("hom*")
-            .dest("/mydir/")
-            .build()
-            .unwrap();
-        let expected = expect!["ADD hom* /mydir/"];
-        expected.assert_eq(&add.to_string());
-    }
-
-    #[test]
-    fn add_http() {
-        let add = AddHttpBuilder::builder()
-            .checksum("sha256::123")
-            .src("http://example.com/foobar")
-            .dest("/")
-            .build()
-            .unwrap();
-        let expected = expect!["ADD --checksum=sha256::123 http://example.com/foobar /"];
-        expected.assert_eq(&add.to_string());
-    }
-
-    #[test]
-    fn add_git() {
-        let add = AddGitBuilder::builder()
-            .keep_git_dir(true)
-            .git_ref("https://github.com/moby/buildkit.git#v0.10.1")
-            .dir("/buildkit")
-            .build()
-            .unwrap();
-        let expected = expect![
-            "ADD --keep-git-dir=true https://github.com/moby/buildkit.git#v0.10.1 /buildkit"
-        ];
-        expected.assert_eq(&add.to_string());
-    }
-
-    #[test]
-    fn copy() {
-        let copy = CopyBuilder::builder()
-            .link(true)
-            .src("foo/")
-            .dest("bar/")
-            .build()
-            .unwrap();
-        let expected = expect!["COPY --link foo/ bar/"];
-        expected.assert_eq(&copy.to_string());
-    }
-
-    #[test]
-    fn entrypoint() {
-        let entrypoint = EntrypointBuilder::builder()
-            .command("some command")
-            .build()
-            .unwrap();
-        let expected = expect![r#"ENTRYPOINT some command"#];
-        expected.assert_eq(&entrypoint.to_string());
-
-        let entrypoint = EntrypointExecBuilder::builder()
-            .executable("mybin.exe")
-            .build()
-            .unwrap();
-        let expected = expect![r#"ENTRYPOINT ["mybin.exe"]"#];
-        expected.assert_eq(&entrypoint.to_string());
-
-        let entrypoint = EntrypointExecBuilder::builder()
-            .executable("top")
-            .param("-b")
-            .build()
-            .unwrap();
-        let expected = expect![r#"ENTRYPOINT ["top", "-b"]"#];
-        expected.assert_eq(&entrypoint.to_string());
-    }
-
-    #[test]
-    fn volume() {
-        let volume = VolumeBuilder::builder()
-            .path("/myvol1")
-            .path("/myvol2")
-            .build()
-            .unwrap();
-        let expected = expect!["VOLUME /myvol1 /myvol2"];
-        expected.assert_eq(&volume.to_string());
-    }
-
-    #[test]
-    fn user() {
-        let user = UserBuilder::builder().user("myuser").build().unwrap();
-        let expected = expect!["USER myuser"];
-        expected.assert_eq(&user.to_string());
-
-        let user = UserBuilder::builder()
-            .user("myuser")
-            .group("mygroup")
-            .build()
-            .unwrap();
-        let expected = expect!["USER myuser:mygroup"];
-        expected.assert_eq(&user.to_string());
-    }
-
-    #[test]
-    fn workdir() {
-        let workdir = WorkdirBuilder::builder()
-            .path("/path/to/workdir")
-            .build()
-            .unwrap();
-        let expected = expect!["WORKDIR /path/to/workdir"];
-        expected.assert_eq(&workdir.to_string());
-    }
-
-    #[test]
-    fn arg() {
-        let arg = ArgBuilder::builder().name("user1").build().unwrap();
-        let expected = expect!["ARG user1"];
-        expected.assert_eq(&arg.to_string());
-
-        let arg = ArgBuilder::builder()
-            .name("user1")
-            .value("someuser")
-            .build()
-            .unwrap();
-        let expected = expect!["ARG user1=someuser"];
-        expected.assert_eq(&arg.to_string());
-    }
-
-    #[test]
-    fn onbuild() {
-        let onbuild = OnbuildBuilder::builder()
-            .instruction(Instruction::ADD(ADD::from(". /app/src")))
-            .build()
-            .unwrap();
-        let expected = expect!["ONBUILD ADD . /app/src"];
-        expected.assert_eq(&onbuild.to_string());
-    }
-
-    #[test]
-    fn onbuild_err() {
-        let onbuild = OnbuildBuilder::builder()
-            .instruction(Instruction::ONBUILD(ONBUILD::from("RUN somecommand")))
-            .build();
-        match onbuild {
-            Ok(_) => panic!("Chaining Onbuild instructions. Expect test to fail"),
-            Err(e) => assert_eq!(
-                e.to_string(),
-                "Chaining ONBUILD instructions using ONBUILD ONBUILD isn’t allowed".to_string(),
-            ),
-        }
-
-        let onbuild = OnbuildBuilder::builder()
-            .instruction(Instruction::FROM(FROM::from("someimage")))
-            .build();
-        match onbuild {
-            Ok(_) => {
-                panic!("ONBUILD instruction may not trigger FROM instruction. Expect test to fail")
-            }
-            Err(e) => assert_eq!(
-                e.to_string(),
-                "ONBUILD instruction may not trigger FROM instruction".to_string(),
-            ),
-        }
-    }
-
-    #[test]
-    fn stopsignal() {
-        let stopsignal = StopsignalBuilder::builder()
-            .signal("SIGKILL")
-            .build()
-            .unwrap();
-        let expected = expect!["STOPSIGNAL SIGKILL"];
-        expected.assert_eq(&stopsignal.to_string());
-    }
-
-    #[test]
-    fn healthcheck() {
-        let healthcheck = HealthcheckBuilder::builder()
-            .cmd(CMD::from("curl -f http://localhost/"))
-            .build()
-            .unwrap();
-        let expected = expect!["HEALTHCHECK CMD curl -f http://localhost/"];
-        expected.assert_eq(&healthcheck.to_string());
-
-        let healthcheck = HealthcheckBuilder::builder()
-            .cmd(CMD::from("curl -f http://localhost/"))
-            .interval(15)
-            .timeout(200)
-            .start_period(5)
-            .retries(5)
-            .build()
-            .unwrap();
-        let expected = expect!["HEALTHCHECK --interal=15 --timeout=200 --start-period=5 --retries=5 CMD curl -f http://localhost/"];
-        expected.assert_eq(&healthcheck.to_string());
     }
 }

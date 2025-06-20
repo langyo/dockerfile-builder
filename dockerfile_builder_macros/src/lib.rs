@@ -265,7 +265,7 @@ pub fn instruction_builder(input: TokenStream) -> TokenStream {
         } else {
             quote! {
                 #name: self.#name.clone().ok_or(
-                    eyre::eyre!(concat!(stringify!(#name), " is required for ", stringify!(#struct_ident)))
+                    anyhow::anyhow!(concat!(stringify!(#name), " is required for ", stringify!(#struct_ident)))
                 )?,
             }
         }
@@ -298,13 +298,13 @@ pub fn instruction_builder(input: TokenStream) -> TokenStream {
             #(#builder_set_method)*
             #(#builder_set_each_method)*
 
-            fn check_build(&mut self) -> eyre::Result<#struct_ident> {
+            fn check_build(&mut self) -> anyhow::Result<#struct_ident> {
                 Ok(#struct_ident {
                     #(#builder_check_build_field)*
                 })
             }
 
-            pub fn build(&mut self) -> eyre::Result<#instruction_name> {
+            pub fn build(&mut self) -> anyhow::Result<#instruction_name> {
                 let instruction_builder = self.check_build()?;
                 let value = instruction_builder.#value_method()?;
                 Ok(
