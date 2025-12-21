@@ -1016,19 +1016,19 @@ impl HealthcheckBuilder {
                 "{}{}{}{}{}{}",
                 self.interval
                     .as_ref()
-                    .map(|i| format!("--interal={} ", i.as_secs()))
+                    .map(|i| format!("--interval={}s ", i.as_secs_f64()))
                     .unwrap_or_default(),
                 self.timeout
                     .as_ref()
-                    .map(|t| format!("--timeout={} ", t.as_secs()))
+                    .map(|t| format!("--timeout={}s ", t.as_secs_f64()))
                     .unwrap_or_default(),
                 self.start_period
                     .as_ref()
-                    .map(|s| format!("--start-period={} ", s.as_secs()))
+                    .map(|s| format!("--start-period={}s ", s.as_secs_f64()))
                     .unwrap_or_default(),
                 self.start_interval
                     .as_ref()
-                    .map(|s| format!("--start-interval={} ", s.as_secs()))
+                    .map(|s| format!("--start-interval={}s ", s.as_secs_f64()))
                     .unwrap_or_default(),
                 self.retries
                     .as_ref()
