@@ -1011,6 +1011,25 @@ pub struct HealthcheckBuilder {
 
 impl HealthcheckBuilder {
     fn value(&self) -> Result<String> {
+        let validate_duration = |label: &str, duration: &Duration| -> Result<()> {
+            if *duration < Duration::from_millis(1) {
+                return Err(anyhow!("Healthcheck {} cannot be less than 1ms", label));
+            }
+            Ok(())
+        };
+
+        if let Some(interval) = &self.interval {
+            validate_duration("interval", interval)?;
+        }
+        if let Some(timeout) = &self.timeout {
+            validate_duration("timeout", timeout)?;
+        }
+        if let Some(start_period) = &self.start_period {
+            validate_duration("start-period", start_period)?;
+        }
+        if let Some(start_interval) = &self.start_interval {
+            validate_duration("start-interval", start_interval)?;
+        }
         match self.cmd.is_some() {
             true => Ok(format!(
                 "{}{}{}{}{}{}",
