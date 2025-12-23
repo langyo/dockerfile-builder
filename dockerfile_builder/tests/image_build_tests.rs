@@ -102,6 +102,15 @@ async fn env_instr_build() -> Result<()> {
 }
 
 #[tokio::test]
+async fn healthcheck_submillisecond_duration_fails_build() -> Result<()> {
+    let mut docker = scratch_docker_file()?;
+    docker.push("HEALTHCHECK --interval=0.0000002s CMD curl -f http://localhost/");
+    let tar = create_docker_tar(docker.to_string())?;
+    assert!(docker_build(tar).await.is_err());
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_multiple_instr() -> Result<()> {
     let mut docker_file = Dockerfile::new();
     let from = FromBuilder::builder().image("scratch").build()?;

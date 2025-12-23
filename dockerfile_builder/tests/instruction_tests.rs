@@ -389,6 +389,15 @@ fn healthcheck_subsecond_duration() {
 }
 
 #[test]
+fn healthcheck_submillisecond_duration_rejected() {
+    let healthcheck = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .interval(Duration::from_nanos(200))
+        .build();
+    assert!(healthcheck.is_err());
+}
+
+#[test]
 fn add_git_url_parse_failure() {
     let add = AddGitBuilder::builder()
         .keep_git_dir(true)
