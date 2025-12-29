@@ -275,7 +275,7 @@ fn healthcheck() {
         .retries(5)
         .build()
         .unwrap();
-    let expected = expect!["HEALTHCHECK --interal=15 --timeout=200 --start-period=5 --retries=5 CMD curl -f http://localhost/"];
+    let expected = expect!["HEALTHCHECK --interval=15s --timeout=200s --start-period=5s --retries=5 CMD curl -f http://localhost/"];
     expected.assert_eq(&healthcheck.to_string());
 }
 
@@ -371,7 +371,77 @@ fn healthcheck_start_interval() {
         .retries(5)
         .build()
         .unwrap();
-    let expected = expect!["HEALTHCHECK --interal=15 --timeout=200 --start-period=5 --start-interval=5 --retries=5 CMD curl -f http://localhost/"];
+    let expected = expect!["HEALTHCHECK --interval=15s --timeout=200s --start-period=5s --start-interval=5s --retries=5 CMD curl -f http://localhost/"];
+    expected.assert_eq(&healthcheck.to_string());
+}
+
+#[test]
+fn healthcheck_subsecond_duration() {
+    let healthcheck = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .interval(Duration::from_millis(500))
+        .timeout(Duration::from_millis(1500))
+        .build()
+        .unwrap();
+    let expected =
+        expect!["HEALTHCHECK --interval=0.5s --timeout=1.5s CMD curl -f http://localhost/"];
+    expected.assert_eq(&healthcheck.to_string());
+}
+
+#[test]
+fn healthcheck_submillisecond_duration_rejected() {
+    let err = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .interval(Duration::from_nanos(200))
+        .build()
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Healthcheck interval cannot be less than 1ms"
+    );
+}
+
+#[test]
+fn healthcheck_submillisecond_other_fields_rejected() {
+    let err = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .timeout(Duration::from_nanos(200))
+        .build()
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Healthcheck timeout cannot be less than 1ms"
+    );
+
+    let err = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .start_period(Duration::from_nanos(200))
+        .build()
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Healthcheck start-period cannot be less than 1ms"
+    );
+
+    let err = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .start_interval(Duration::from_nanos(200))
+        .build()
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Healthcheck start-interval cannot be less than 1ms"
+    );
+}
+
+#[test]
+fn healthcheck_one_millisecond_ok() {
+    let healthcheck = HealthcheckBuilder::builder()
+        .cmd(CMD::from("curl -f http://localhost/"))
+        .interval(Duration::from_millis(1))
+        .build()
+        .unwrap();
+    let expected = expect!["HEALTHCHECK --interval=0.001s CMD curl -f http://localhost/"];
     expected.assert_eq(&healthcheck.to_string());
 }
 
